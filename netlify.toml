@@ -1,2 +1,4 @@
 [functions]
+  directory = "netlify/functions"
   external_node_modules = ["@netlify/blobs"]
+  node_bundle = true
