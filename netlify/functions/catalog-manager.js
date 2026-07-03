@@ -10,25 +10,24 @@ const DEFAULT_CATALOG = {
 };
 
 function jsonResponse(statusCode, data) {
-  return {
-    statusCode,
+  return new Response(JSON.stringify(data), {
+    status: statusCode,
     headers: {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store, no-cache, must-revalidate",
       "Pragma": "no-cache",
       "Expires": "0",
       "X-Content-Type-Options": "nosniff"
-    },
-    body: JSON.stringify(data)
-  };
+    }
+  });
 }
 
-function getAdminKey(event) {
-  return event.headers["x-admin-key"] || event.headers["X-Admin-Key"] || "";
+function getAdminKey(request) {
+  return request.headers.get("x-admin-key") || "";
 }
 
-function isAuthorized(event) {
-  return getAdminKey(event) === (process.env.ADMIN_KEY || "");
+function isAuthorized(request) {
+  return getAdminKey(request) === (process.env.ADMIN_KEY || "");
 }
 
 async function readCatalog(store) {
@@ -88,17 +87,14 @@ function findCalendar(calendars, id) {
   return calendars.find(c => c.id === id) || null;
 }
 
-async function handleGet(store, q) {
+async function handleGet(store, url) {
+  const q = Object.fromEntries(url.searchParams.entries());
   const catalog = await readCatalog(store);
 
-  if (!q.id) {
-    return jsonResponse(200, publicCatalog(catalog));
-  }
+  if (!q.id) return jsonResponse(200, publicCatalog(catalog));
 
   const item = findCalendar(catalog.calendars, q.id);
-  if (!item) {
-    return jsonResponse(404, { error: "Not found" });
-  }
+  if (!item) return jsonResponse(404, { error: "Not found" });
 
   if ((item.type || (item.url ? "public" : "private")) === "public") {
     return jsonResponse(200, {
@@ -112,9 +108,7 @@ async function handleGet(store, q) {
 
   const blobKey = item.blobKey || `calendar:${item.id}:blob`;
   const blob = await store.get(blobKey, { type: "text" });
-  if (!blob) {
-    return jsonResponse(404, { error: "Blob not found" });
-  }
+  if (!blob) return jsonResponse(404, { error: "Blob not found" });
 
   return jsonResponse(200, {
     id: item.id,
@@ -125,14 +119,12 @@ async function handleGet(store, q) {
   });
 }
 
-async function handlePost(store, event) {
-  if (!isAuthorized(event)) {
-    return jsonResponse(403, { error: "Forbidden" });
-  }
+async function handlePost(store, request) {
+  if (!isAuthorized(request)) return jsonResponse(403, { error: "Forbidden" });
 
   let payload;
   try {
-    payload = JSON.parse(event.body || "{}");
+    payload = await request.json();
   } catch {
     return jsonResponse(400, { error: "Invalid JSON" });
   }
@@ -199,9 +191,7 @@ async function handlePost(store, event) {
     const nextCalendars = catalog.calendars.filter(c => c.id !== id);
     if (removed.blobKey || removed.id) {
       const blobKey = removed.blobKey || `calendar:${removed.id}:blob`;
-      try {
-        await store.delete(blobKey);
-      } catch {}
+      try { await store.delete(blobKey); } catch {}
     }
 
     const nextCatalog = await writeCatalog(store, {
@@ -215,16 +205,16 @@ async function handlePost(store, event) {
   return jsonResponse(400, { error: "Unknown mode" });
 }
 
-export async function handler(event) {
+export default async function handler(request, context) {
   try {
     const store = getStore(STORE_NAME);
-    const q = event.queryStringParameters || {};
+    const url = new URL(request.url);
 
-    if (event.httpMethod === "GET") return await handleGet(store, q);
-    if (event.httpMethod === "POST") return await handlePost(store, event);
+    if (request.method === "GET") return await handleGet(store, url);
+    if (request.method === "POST") return await handlePost(store, request);
 
     return jsonResponse(405, { error: "Method Not Allowed" });
-  } catch {
-    return jsonResponse(500, { error: "Internal Server Error" });
+  } catch (error) {
+    return jsonResponse(500, { error: "Internal Server Error", detail: String(error?.message || error) });
   }
 }
