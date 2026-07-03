@@ -1,0 +1,943 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Itinerario da iCal - Shortcut</title>
+<style>
+:root{--bg:#f6f3ee;--paper:#fff;--ink:#1f1f1f;--muted:#6a6a6a;--line:#ddd3c7;--soft:#f3ece3;--accent:#7b4f2a;--ok:#eef7ef;--okb:#cfe7d0;--warn:#fff6e9;--warnb:#ead6aa;--radius:16px}
+*{box-sizing:border-box;min-width:0} body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow-x:hidden}
+.link-btn{
+    color:#0a84ff;
+    text-decoration:none;
+    font-weight:600;
+}
+
+.link-btn:hover{
+    text-decoration:underline;
+}
+.wrap{max-width:1120px;margin:0 auto;padding:16px}.toolbar,.card,.day{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);width:100%;max-width:100%}
+.toolbar{padding:18px;display:grid;gap:14px;box-shadow:0 8px 28px rgba(0,0,0,.06)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.title{display:grid;gap:6px}.title h1,.day h2,.stat .v{margin:0}.title p,.muted{color:var(--muted)}
+input[type=file]{padding:10px 12px;background:var(--soft);border:1px solid var(--line);border-radius:10px;max-width:100%;width:100%}button{border:0;background:var(--accent);color:#fff;padding:10px 14px;border-radius:10px;font-weight:700;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));width:100%;max-width:100%}.stat{padding:14px;border:1px solid var(--line);border-radius:14px;background:#fff;overflow-wrap:anywhere}.stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}.stat .v{font-size:22px;margin-top:4px;overflow-wrap:anywhere}
+.status{padding:10px 12px;border-radius:12px;border:1px solid var(--okb);background:var(--ok);display:none;overflow-wrap:anywhere}.status.warn{background:var(--warn);border-color:var(--warnb)}
+.sheet{margin-top:18px;display:grid;gap:18px;width:100%;max-width:100%}.cover{padding:22px;overflow:hidden}.cover h2{margin:0 0 8px}
+.day{overflow:hidden;page-break-inside:avoid}.day-head{padding:18px 20px;background:linear-gradient(135deg,#fff,#f4ede5);border-bottom:1px solid var(--line)}.day-head h2{font-size:22px}.day-head .meta{color:var(--muted);margin-top:4px}
+.table-wrap{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}table{width:100%;max-width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:12px 14px;vertical-align:top;border-bottom:1px solid #eee5da;overflow-wrap:anywhere;word-break:break-word}th{text-align:left;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;background:#fcfaf7}tr:last-child td{border-bottom:0}.time{width:110px;white-space:nowrap;font-weight:700}.place-col{width:34%}.ev-title{font-weight:700}.small{font-size:12px;color:var(--muted);margin-top:4px}.pill{display:inline-block;margin-top:6px;padding:4px 8px;border-radius:999px;background:#f5ede4;border:1px solid #e6d5c3;font-size:12px;color:#6b4527;max-width:100%;overflow-wrap:anywhere}.travel-meta{margin-top:6px;font-size:12px;color:var(--muted);font-style:italic}a{color:#6a3d16}.empty{padding:28px;text-align:center;color:var(--muted);border:1px dashed var(--line);border-radius:16px;background:var(--paper)}
+.instructions{background:#fbf7f2;border:1px solid #eadccf;border-radius:14px;padding:14px;display:grid;gap:8px}.instructions ol{margin:0;padding-left:18px}.instructions li{margin:4px 0}
+@media (max-width:760px){.wrap{padding:12px}.toolbar{padding:14px}.row{flex-direction:column;align-items:stretch}.time{width:82px}.place-col{width:38%}th,td{padding:10px 9px;font-size:13px}.day-head{padding:14px}.day-head h2{font-size:19px}}
+@media print{body{background:#fff}.no-print{display:none!important}.wrap{max-width:none;padding:0}.toolbar{box-shadow:none;border:none;padding:0 0 12px 0}.day,.card,.cover{border-radius:0}.sheet{margin-top:10px}@page{size:A4;margin:11mm}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="toolbar">
+    <div class="title">
+      <h1>Itinerario da iCal</h1>
+      <p>Versione pensata per Comandi Rapidi su iPhone: scegli il file .ics e genera una pagina finale pronta da salvare o condividere.</p>
+    </div>
+    <div class="instructions no-print">
+      <strong>Come usarlo in Comandi Rapidi</strong>
+      <ol>
+        <li>Carica questo HTML in Safari o in una web view.</li>
+        <li>Il comando rapido passa il file .ics al browser/script.</li>
+        <li>Premi il pulsante di esportazione per ottenere la pagina finale.</li>
+      </ol>
+    </div>
+    <div class="row no-print">
+        <input id="fileInput" type="file" accept=".ics,text/calendar,.ical,.ifb,.txt" />
+        <button id="loadLinksBtn" type="button">Seleziona da link</button>
+         <button id="refreshLinksBtn" type="button" disabled>Ricarica lista</button>
+         <button id="saveHtmlBtn" disabled>Esporta pagina finale</button>
+        <button id="pdfBtn" disabled>Genera PDF</button>
+    </div>
+    <div id="linkPanel" class="instructions no-print" style="display:none;">
+        <strong>Seleziona un link</strong>
+        <div id="linkList" style="display:grid;gap:8px;margin-top:8px;"></div>
+    </div>  
+    <div id="status" class="status"></div>
+    <div id="summary" class="grid"></div>
+  </div>
+  <div id="output" class="sheet">
+    <div class="empty">Carica un file iCal per generare il programma.</div>
+  </div>
+</div>
+<script>
+const fileInput = document.getElementById('fileInput');
+const summaryEl = document.getElementById('summary');
+const outputEl = document.getElementById('output');
+const statusEl = document.getElementById('status');
+const saveHtmlBtn = document.getElementById('saveHtmlBtn');
+const pdfBtn = document.getElementById('pdfBtn');
+const loadLinksBtn = document.getElementById('loadLinksBtn');
+const refreshLinksBtn = document.getElementById('refreshLinksBtn');
+const linkPanel = document.getElementById('linkPanel');
+const linkList = document.getElementById('linkList');
+const CATALOG_API = '/.netlify/functions/catalog-manager';
+let selectedLinkItem = null;
+let catalogCache = null;
+let currentModel = null;
+const TRAVEL_KEYWORDS =
+    '(?:percorrenza|tempo\\s+di\\s+percorrenza|tempo\\s+viaggio|durata\\s+trasferimento)';
+function setStatus(msg, warn=false){statusEl.textContent=msg;statusEl.className='status'+(warn?' warn':'');statusEl.style.display='block';}
+function clearStatus(){statusEl.style.display='none';statusEl.textContent='';}
+function esc(s=''){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function unescapeICS(v=''){return v.replace(/\\n/g,'\n').replace(/\\,/g,',').replace(/\\;/g,';').replace(/\\\\/g,'\\');}
+function unfold(text){return text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').replace(/\n[ \t]/g,'');}
+function parseDate(v){
+
+    if(!v) return null;
+
+    // Evento UTC
+    const utc = v.match(
+        /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?Z$/
+    );
+
+    if(utc){
+        return new Date(Date.UTC(
+            +utc[1],
+            +utc[2]-1,
+            +utc[3],
+            +utc[4],
+            +utc[5],
+            +(utc[6] || 0)
+        ));
+    }
+
+    // Evento con orario locale
+    const local = v.match(
+        /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})?$/
+    );
+
+    if(local){
+        return new Date(
+            +local[1],
+            +local[2]-1,
+            +local[3],
+            +local[4],
+            +local[5],
+            +(local[6] || 0)
+        );
+    }
+
+    // Evento "all day"
+    const allDay = v.match(
+        /^(\d{4})(\d{2})(\d{2})$/
+    );
+
+    if(allDay){
+        return new Date(
+            +allDay[1],
+            +allDay[2]-1,
+            +allDay[3],
+            0,
+            0,
+            0
+        );
+    }
+
+    return null;
+}
+
+
+function fmtDate(d){return new Intl.DateTimeFormat('it-IT',{weekday:'long',day:'2-digit',month:'long',year:'numeric'}).format(d);}
+function fmtShortDate(d){return new Intl.DateTimeFormat('it-IT',{day:'2-digit',month:'2-digit',year:'numeric'}).format(d);}
+function fmtTime(d){return new Intl.DateTimeFormat('it-IT',{hour:'2-digit',minute:'2-digit'}).format(d);}
+function cleanGeoLabel(v=''){return v.replace(/^"|"$/g,'').replace(/::geo:.+$/,'').replace(/:geo:.+$/,'').trim();}
+function splitProp(line){const idx=line.indexOf(':'); if(idx<0) return null; return {left:line.slice(0,idx), value:line.slice(idx+1)};}
+function parseTravelAndDuration(line = '') {
+
+    const extract = (...keys) => {
+
+        for (const key of keys) {
+
+            const re = new RegExp(
+                `(?:^|;)${key}=("(?:[^"]*)"|[^;]*)`,
+                'i'
+            );
+
+            const m = line.match(re);
+
+            if (!m) continue;
+
+            const value = m[1]
+                .replace(/^"|"$/g, '')
+                .trim();
+
+            if (value) {
+                return value;
+            }
+        }
+
+        return '';
+    };
+
+    const fromTitle = cleanGeoLabel(
+        unescapeICS(
+            extract(
+                'X-TITLE',
+                'TITLE'
+            )
+        )
+    );
+
+    const fromAddress = cleanGeoLabel(
+        unescapeICS(
+            extract(
+                'X-ADDRESS',
+                'ADDRESS'
+            )
+        )
+    );
+
+    let durationRaw = unescapeICS(
+        extract(
+            'TRAVEL-DURATION',
+            'X-APPLE-TRAVEL-DURATION',
+            'DURATION'
+        )
+    ).trim();
+
+    // fallback: prova a trovare una durata direttamente nella riga
+    if (!durationRaw) {
+
+        const fallback = line.match(
+            /\b(?:PT\d+H\d*M?|PT\d+M|PT\d+H)\b/i
+        );
+
+
+        if (fallback) {
+            durationRaw = fallback[0];
+        }
+    }
+
+    return {
+        fromTitle,
+        fromAddress,
+        durationRaw,
+        duration: normalizeDuration(durationRaw)
+    };
+}
+
+function normalizeDuration(raw = '') {
+
+    const v = (raw || '').trim();
+
+    if (!v) return '';
+
+    // PT1H20M
+    // PT1H
+    // PT45M
+    if (/^PT/i.test(v)) {
+
+        const h = parseInt(
+            (v.match(/(\d+)H/i) || [])[1] || 0,
+            10
+        );
+
+        const min = parseInt(
+            (v.match(/(\d+)M/i) || [])[1] || 0,
+            10
+        );
+
+        if (h && min) {
+            return `${h}h ${min}min`;
+        }
+
+        if (h) {
+            return `${h}h`;
+        }
+
+        if (min) {
+            return `${min} min`;
+        }
+
+        return '';
+    }
+
+    // numero puro = minuti
+    // 45 → 45 min
+    // 90 → 1h 30min
+    if (/^\d+$/.test(v)) {
+
+        const totalMinutes = parseInt(v, 10);
+
+        if (totalMinutes < 60) {
+            return `${totalMinutes} min`;
+        }
+
+        const h = Math.floor(totalMinutes / 60);
+        const min = totalMinutes % 60;
+
+        return min
+            ? `${h}h ${min}min`
+            : `${h}h`;
+    }
+
+    let m;
+
+    // 1 ora e 30 minuti
+    m = v.match(
+        /^(\d+)\s*or[ae]\b\s*(?:e\s*)?(\d+)\s*(?:m|min|minuti)?$/i
+    );
+
+    if (m) {
+
+        const h = parseInt(m[1], 10);
+        const min = parseInt(m[2], 10);
+
+        return min > 0
+            ? `${h}h ${min}min`
+            : `${h}h`;
+    }
+
+    // 1h30
+    // 1h30m
+    // 1 h 30
+    // 1 h 30 min
+    m = v.match(
+        /^(\d+)\s*h\s*(\d+)\s*(?:m|min|minuti)?$/i
+    );
+
+    if (m) {
+
+        const h = parseInt(m[1], 10);
+        const min = parseInt(m[2], 10);
+
+        return min > 0
+            ? `${h}h ${min}min`
+            : `${h}h`;
+    }
+
+    // 1 ora
+    // 2 ore
+    m = v.match(
+        /^(\d+)\s*or[ae]\b$/i
+    );
+
+    if (m) {
+        return `${parseInt(m[1], 10)}h`;
+    }
+
+    // 1h
+    // 1 h
+    m = v.match(
+        /^(\d+)\s*h$/i
+    );
+
+    if (m) {
+        return `${parseInt(m[1], 10)}h`;
+    }
+
+    // 45m
+    // 45 min
+    // 45 minuti
+    m = v.match(
+        /^(\d+)\s*(?:m|min|minuti)$/i
+    );
+
+    if (m) {
+        return `${parseInt(m[1], 10)} min`;
+    }
+
+    return v;
+}
+
+function findManualTravelTime(obj) {
+
+    const text = (obj.description || '').trim();
+
+    if (!text) return '';
+
+    const re = new RegExp(
+
+        `${TRAVEL_KEYWORDS}\\s*[:\\-]?\\s*` +
+
+        '(' +
+
+            // 1 ora e 30 minuti
+            '\\d+\\s*or[ae]\\b\\s*(?:e\\s*)?\\d+\\s*(?:m|min|minuti)?' +
+
+            '|' +
+
+            // 1h30 / 1 h 30 min
+            '\\d+\\s*h\\s*\\d+\\s*(?:m|min|minuti)?' +
+
+            '|' +
+
+            // 2 ore / 1 ora
+            '\\d+\\s*or[ae]\\b' +
+
+            '|' +
+
+            // 1h
+            '\\d+\\s*h\\b' +
+
+            '|' +
+
+            // 45 min
+            '\\d+\\s*(?:m|min|minuti)\\b' +
+
+        ')',
+
+        'i'
+    );
+
+    const match = text.match(re);
+
+    if (!match) {
+        return '';
+    }
+
+    const value = match[1].trim();
+
+    return normalizeDuration(value);
+}
+
+function removeTravelTimeFromDescription(text = '') {
+
+    if (!text) return '';
+
+    const travelRegex = new RegExp(
+
+        `${TRAVEL_KEYWORDS}\\s*[:\\-]?\\s*` +
+
+        '(?:' +
+
+        // 1 ora e 30 minuti
+        '\\d+\\s*or[ae]\\b\\s*(?:e\\s*)?\\d+\\s*(?:m|min|minuti)' +
+
+        '|' +
+
+        // 1h30, 1h30m, 1 h 30 min
+        '\\d+\\s*h\\s*\\d+\\s*(?:m|min|minuti)?' +
+
+        '|' +
+
+        // 2 ore
+        '\\d+\\s*or[ae]\\b' +
+
+        '|' +
+
+        // 1h
+        '\\d+\\s*h\\b' +
+
+        '|' +
+
+        // 90 min
+        '\\d+\\s*(?:m|min|minuti)' +
+
+        ')',
+
+        'i'
+    );
+
+    const cleanedLines = text
+        .split('\n')
+        .map(line => {
+
+            let cleaned = line.replace(travelRegex, '');
+
+            cleaned = cleaned
+                .replace(/^[\s\-–—,:;]+/, '')
+                .replace(/[\s\-–—,:;]+$/, '')
+                .replace(/\s{2,}/g, ' ')
+                .trim();
+
+            if (/^in$/i.test(cleaned)) {
+                return '';
+            }
+
+            return cleaned;
+
+        })
+        .filter(Boolean);
+
+    return cleanedLines.join('\n');
+}
+
+function parseICS(raw){
+    const text = unfold(raw);
+    const lines = text.split('\n');
+
+    let calName = 'Programma di viaggio';
+    const events = [];
+    let current = null;
+
+    for(const rawLine of lines){
+        const line = rawLine.trimEnd();
+
+        if(line === 'BEGIN:VEVENT'){
+            current = [];
+            continue;
+        }
+
+        if(line === 'END:VEVENT'){
+            if(current) events.push(current);
+            current = null;
+            continue;
+        }
+
+        if(!current){
+            if(line.startsWith('X-WR-CALNAME:')){
+                calName =
+                    unescapeICS(
+                        line.slice('X-WR-CALNAME:'.length)
+                    ).trim() || calName;
+            }
+            continue;
+        }
+
+        current.push(line);
+    }
+
+    const parsed = events.map(lines => {
+
+        const obj = {
+            summary: 'Senza titolo',
+            location: '',
+            url: '',
+            description: '',
+            uid: '',
+            start: null,
+            end: null,
+            travel: null,
+            travelTime: '',
+            isAllDay: false,
+            isAllDayEnd: false
+        };
+
+
+        for(const line of lines){
+
+            const prop = splitProp(line);
+            if(!prop) continue;
+
+            const name = prop.left.split(';')[0];
+            const val = unescapeICS(prop.value.trim());
+
+            if(name === 'SUMMARY'){
+                obj.summary = val || obj.summary;
+            }
+            else if(name === 'LOCATION'){
+                obj.location = val;
+            }
+            else if(name === 'URL'){
+                obj.url = val;
+            }
+            else if(name === 'DESCRIPTION'){
+                obj.description = val;
+            }
+            else if(name === 'UID'){
+                obj.uid = val;
+            }
+            else if(name === 'DTSTART'){
+                obj.start = parseDate(val);
+                obj.isAllDay = /^\d{8}$/.test(val);
+            }
+            else if(name === 'DTEND'){
+                obj.end = parseDate(val);
+                obj.isAllDayEnd = /^\d{8}$/.test(val);
+            }
+            else if(name === 'X-APPLE-TRAVEL-START'){
+                obj.travel = parseTravelAndDuration(line);
+            }
+            else if(/TRAVEL-DURATION|X-APPLE-TRAVEL-DURATION/i.test(name)){
+                obj.travelTime = normalizeDuration(val);
+            }
+        }
+
+        /* AGGIUNGI QUI */
+        if (
+            obj.isAllDay &&
+            obj.isAllDayEnd &&
+            obj.end
+        ) {
+            obj.end = new Date(obj.end);
+            obj.end.setDate(obj.end.getDate() - 1);
+        }
+
+        obj.dayKey = obj.start
+            ? `${obj.start.getFullYear()}-${String(obj.start.getMonth() + 1).padStart(2, '0')}-${String(obj.start.getDate()).padStart(2, '0')}`
+            : '';
+
+        obj.placeLabel = (obj.location || obj.summary)
+            .split('\n')[0]
+            .trim();
+
+        // Recupera eventuale percorrenza presente nel DESCRIPTION
+        const travelFromDescription = findManualTravelTime(obj);
+
+        // Recupera eventuale percorrenza Apple
+        const travelFromApple =
+            obj.travel?.duration || '';
+
+
+        // Priorità:
+        // 1. TRAVEL-DURATION
+        // 2. X-APPLE-TRAVEL-START
+        // 3. DESCRIPTION
+        obj.travelTime =
+            obj.travelTime ||
+            travelFromApple ||
+            travelFromDescription ||
+            '';
+
+        // Se è stata trovata una percorrenza,
+        // rimuove eventuali righe duplicate dalla descrizione
+        if(obj.travelTime){
+            obj.description =
+                removeTravelTimeFromDescription(obj.description);
+        }
+
+        return obj;
+
+    }).filter(
+        e => e.start instanceof Date &&
+             !isNaN(e.start)
+    );
+
+    parsed.sort((a,b) => a.start - b.start);
+
+    return {
+        calName,
+        events: parsed
+    };
+}
+function toBase64(buffer) {
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function fromBase64(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+async function deriveKeyFromPassword(password, saltBytes) {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: saltBytes,
+      iterations: 100000,
+      hash: 'SHA-256'
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['decrypt']
+  );
+}
+
+async function decryptBlobPayload(payload, password) {
+  const obj = typeof payload === 'string' ? JSON.parse(payload) : payload;
+  if (!obj || !obj.salt || !obj.iv || !obj.data) {
+    throw new Error('Blob cifrato non valido');
+  }
+
+  const salt = fromBase64(obj.salt);
+  const iv = fromBase64(obj.iv);
+  const encrypted = fromBase64(obj.data);
+
+  const key = await deriveKeyFromPassword(password, salt);
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encrypted
+  );
+
+  return new TextDecoder().decode(plain);
+}
+
+function showLinkPanel(show = true) {
+  linkPanel.style.display = show ? 'grid' : 'none';
+}
+async function fetchCatalog() {
+  const res = await fetch(CATALOG_API);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Errore caricamento catalogo');
+  catalogCache = data;
+  return data;
+}
+
+function renderLinkList(catalog) {
+  linkList.innerHTML = '';
+
+  if (!catalog.calendars || !catalog.calendars.length) {
+    linkList.innerHTML = '<div class="muted">Nessun link disponibile.</div>';
+    return;
+  }
+
+  catalog.calendars.forEach(item => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.style.textAlign = 'left';
+    btn.style.width = '100%';
+    btn.style.display = 'flex';
+    btn.style.justifyContent = 'space-between';
+    btn.style.gap = '10px';
+
+    btn.innerHTML = `
+      <span>${esc(item.name)}</span>
+      <span class="muted">${item.encrypted ? 'criptato' : 'chiaro'}</span>
+    `;
+
+    btn.addEventListener('click', () => selectCatalogItem(item));
+    linkList.appendChild(btn);
+  });
+}
+
+async function loadLinkCatalog() {
+  try {
+    setStatus('Caricamento lista link...');
+    const catalog = await fetchCatalog();
+    renderLinkList(catalog);
+    showLinkPanel(true);
+    refreshLinksBtn.disabled = false;
+    setStatus(`Lista caricata: ${catalog.calendars.length} elementi.`);
+  } catch (err) {
+    console.error(err);
+    setStatus(err.message || 'Errore caricamento lista link', true);
+  }
+}
+async function selectCatalogItem(item) {
+  try {
+    selectedLinkItem = item;
+    setStatus(`Selezionato: ${item.name}. Recupero contenuto...`);
+
+    const res = await fetch(`${CATALOG_API}?id=${encodeURIComponent(item.id)}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Errore lettura link');
+
+    let icsText = '';
+
+    if (data.type === 'public') {
+      const fileRes = await fetch(data.url);
+      if (!fileRes.ok) throw new Error('Impossibile scaricare il file pubblico');
+      icsText = await fileRes.text();
+    } else if (data.encrypted) {
+      const password = prompt(`Password per "${data.name}"`);
+      if (!password) {
+        setStatus('Operazione annullata.');
+        return;
+      }
+      icsText = await decryptBlobPayload(data.blob, password);
+    } else {
+      icsText = data.blob;
+    }
+
+    const model = parseICS(icsText);
+    renderModel(model);
+    setStatus(`File caricato da: ${item.name}`);
+    showLinkPanel(false);
+  } catch (err) {
+    console.error(err);
+    setStatus(err.message || 'Errore nel caricamento del link', true);
+  }
+}
+function groupByDay(events){const map=new Map(); for(const ev of events){ if(!map.has(ev.dayKey)) map.set(ev.dayKey,[]); map.get(ev.dayKey).push(ev);} return [...map.entries()].map(([key,items])=>({key,items}));}
+function buildSummary(model){const {calName,events}=model; summaryEl.innerHTML=''; if(!events.length) return; const first=events[0].start; const lastEnd=events.reduce((m,e)=>e.end&&e.end>m?e.end:m,events[0].end||events[0].start); const days=new Set(events.map(e=>e.dayKey)).size; const stops=new Set(events.map(e=>e.placeLabel).filter(Boolean)).size; const travelTimes=events.filter(e=>e.travelTime).length; const cards=[['Titolo',calName],['Periodo',`${fmtShortDate(first)} - ${fmtShortDate(lastEnd)}`],['Giorni',String(days)],['Eventi',String(events.length)],['Tappe',String(stops)],['Percorrenze',String(travelTimes)]]; summaryEl.innerHTML=cards.map(([k,v])=>`<div class="stat"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('');}
+function renderModel(model) {
+
+    currentModel = model;
+
+    buildSummary(model);
+
+    const hasEvents = model.events.length > 0;
+
+    saveHtmlBtn.disabled = !hasEvents;
+    pdfBtn.disabled = !hasEvents;
+
+    if (!hasEvents) {
+
+        outputEl.innerHTML = `
+            <div class="empty">
+                Nessun evento valido trovato.
+            </div>
+        `;
+
+        return;
+    }
+
+    const groups = groupByDay(model.events);
+
+    const firstEvent = model.events[0];
+
+    const lastEvent =
+        model.events[model.events.length - 1];
+
+    const tripStart = firstEvent.start;
+
+    const tripEnd =
+        lastEvent.end instanceof Date
+            ? lastEvent.end
+            : lastEvent.start;
+
+    const cover = `
+        <section class="cover card">
+            <h2>${esc(model.calName)}</h2>
+
+            <div class="muted">
+                Dal ${esc(fmtDate(tripStart))}
+                al ${esc(fmtDate(tripEnd))}
+            </div>
+        </section>
+    `;
+
+    const daysHtml = groups.map(({ items }) => {
+
+        const dayDate = items[0].start;
+
+        const rows = items.map(ev => {
+
+            const timeLabel =
+                ev.isAllDay
+                    ? 'Intera giornata'
+                    : esc(fmtTime(ev.start));
+
+            const endLabel =
+                ev.end && !ev.isAllDay
+                    ? `
+                        <div class="small">
+                            fino ${esc(fmtTime(ev.end))}
+                        </div>
+                    `
+                    : '';
+
+            const travelLabel =
+                ev.travelTime
+                    ? `
+                        <div class="travel-meta">
+                            Trasferimento:
+                            ${esc(ev.travelTime)}
+                            da tappa precedente
+                        </div>
+                    `
+                    : '';
+
+            const description =
+                ev.description
+                    ? `
+                        <div class="small">
+                            ${esc(ev.description)}
+                        </div>
+                    `
+                    : '';
+
+            const location =
+                ev.location
+                    ? esc(ev.location).replace(/\n/g, '<br>')
+                    : '<span class="small">—</span>';
+
+            return `
+                <tr>
+
+                    <td class="time">
+                        ${timeLabel}
+                        ${endLabel}
+                    </td>
+
+                    <td>
+
+                        <div class="ev-title">
+                            ${esc(ev.summary)}
+                        </div>
+
+                        ${travelLabel}
+
+                        ${description}
+
+                        ${ev.url
+                        ? `
+                            <div class="small">
+                                ${esc(ev.url)}
+                            </div>
+                        `
+                        : ''
+                    }
+                    </td>
+
+                    <td>
+                        ${location}
+                    </td>
+
+                </tr>
+            `;
+        }).join('');
+
+        return `
+            <section class="day">
+
+                <div class="day-head">
+
+                    <h2>
+                        ${esc(fmtDate(dayDate))}
+                    </h2>
+
+                    <div class="meta">
+                        ${items.length} attività
+                    </div>
+
+                </div>
+
+                <div class="table-wrap">
+
+                    <table>
+
+                        <colgroup>
+                            <col style="width:110px">
+                            <col>
+                            <col class="place-col">
+                        </colgroup>
+
+                        <thead>
+                            <tr>
+                                <th>Orario</th>
+                                <th>Attività</th>
+                                <th class="place-col">Luogo</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            ${rows}
+                        </tbody>
+
+                    </table>
+
+                </div>
+
+            </section>
+        `;
+
+    }).join('');
+
+    outputEl.innerHTML = cover + daysHtml;
+}
+function buildStaticDocument(){const styles=document.querySelector('style').textContent; const title=currentModel?.calName || 'Programma di viaggio'; return `<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${styles}</style></head><body><div class="wrap"><div class="toolbar"><div class="title"><h1>${esc(title)}</h1><p></p></div><div class="grid">${summaryEl.innerHTML}</div></div><div class="sheet">${outputEl.innerHTML}</div></div></body></html>`;}
+function saveStaticHTML(){ if(!currentModel) return; try{ const blob=new Blob([buildStaticDocument()],{type:'text/html;charset=utf-8'}); const a=document.createElement('a'); const url=URL.createObjectURL(blob); a.href=url; a.download=(currentModel.calName||'itinerario').replace(/[\\/:*?"<>|]+/g,'-')+'-finale.html'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1500); setStatus('Pagina finale salvata.'); }catch(err){ console.error(err); setStatus('Salvataggio non riuscito in questo browser.', true); }}
+function generatePdf(){ if(!currentModel) return; const w=window.open('','_blank'); if(!w){ setStatus('Popup bloccato: usa Safari e abilita la nuova finestra.', true); return; } const doc=buildStaticDocument(); w.document.open(); w.document.write(doc); w.document.close(); setTimeout(()=>{ try{ w.focus(); w.print(); } catch(e){ setStatus('Stampa non disponibile in questo browser.', true); } }, 600);} 
+fileInput.addEventListener('change', async e=>{const f=e.target.files && e.target.files[0]; if(!f) return; clearStatus(); try{ const txt=await f.text(); const model=parseICS(txt); renderModel(model); setStatus(`Importazione completata: ${model.events.length} eventi letti da ${f.name}.`); } catch(err){ console.error(err); setStatus('Errore durante la lettura del file iCal.', true); }});
+saveHtmlBtn.addEventListener('click', saveStaticHTML);
+pdfBtn.addEventListener('click', generatePdf);
+loadLinksBtn.addEventListener('click', loadLinkCatalog);
+refreshLinksBtn.addEventListener('click', loadLinkCatalog);
+</script>
+</body>
+</html>

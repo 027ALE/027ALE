@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encrypt Secret</title>
+
+<style>
+body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    max-width:1000px;
+    margin:40px auto;
+    padding:20px;
+}
+
+textarea,input{
+    width:100%;
+    padding:12px;
+    margin:10px 0;
+    box-sizing:border-box;
+}
+
+button{
+    padding:12px 20px;
+    cursor:pointer;
+    font-weight:600;
+}
+
+pre{
+    margin-top:20px;
+    background:#f5f5f5;
+    padding:16px;
+    overflow:auto;
+    word-break:break-all;
+}
+
+.warn{
+    color:#b00020;
+    font-weight:bold;
+}
+</style>
+</head>
+<body>
+
+<h2>Cifratura URL / Segreto</h2>
+
+<p>
+Genera un blob cifrato da conservare in Netlify.
+</p>
+
+<label>Segreto da cifrare</label>
+<textarea
+    id="secret"
+    rows="4"
+    placeholder="https://p106-caldav.icloud.com/..."
+></textarea>
+
+<label>Password</label>
+<input
+    id="password"
+    type="password"
+    placeholder="Passphrase lunga e casuale"
+/>
+
+<label>Conferma Password</label>
+<input
+    id="confirmPassword"
+    type="password"
+    placeholder="Ripeti password"
+/>
+
+<button id="encryptBtn">
+    Cripta
+</button>
+
+<p class="warn">
+Usa una passphrase di almeno 16-20 caratteri.
+</p>
+
+<pre id="output"></pre>
+
+<script>
+
+function toBase64Url(buffer){
+
+    const bytes = new Uint8Array(buffer);
+
+    let binary = "";
+
+    for(let i=0;i<bytes.length;i++){
+        binary += String.fromCharCode(bytes[i]);
+    }
+
+    return btoa(binary)
+        .replace(/\+/g,'-')
+        .replace(/\//g,'_')
+        .replace(/=+$/,'');
+}
+
+async function deriveKey(password,salt){
+
+    const enc = new TextEncoder();
+
+    const baseKey =
+        await crypto.subtle.importKey(
+            "raw",
+            enc.encode(password),
+            "PBKDF2",
+            false,
+            ["deriveKey"]
+        );
+
+    return crypto.subtle.deriveKey(
+        {
+            name:"PBKDF2",
+            salt,
+            iterations:1000000,
+            hash:"SHA-512"
+        },
+        baseKey,
+        {
+            name:"AES-GCM",
+            length:256
+        },
+        false,
+        ["encrypt"]
+    );
+}
+
+function validatePassword(password){
+
+    if(password.length < 16){
+        throw new Error(
+            "Password troppo corta. Minimo 16 caratteri."
+        );
+    }
+}
+
+document
+.getElementById("encryptBtn")
+.addEventListener(
+    "click",
+    async ()=>{
+
+        const output =
+            document.getElementById("output");
+
+        try{
+
+            let secret =
+                document.getElementById("secret")
+                .value
+                .trim();
+
+            let password =
+                document.getElementById("password")
+                .value;
+
+            const confirm =
+                document.getElementById(
+                    "confirmPassword"
+                ).value;
+
+            if(!secret){
+                throw new Error(
+                    "Inserisci un segreto."
+                );
+            }
+
+            if(password !== confirm){
+                throw new Error(
+                    "Le password non coincidono."
+                );
+            }
+
+            validatePassword(password);
+
+            const encoder =
+                new TextEncoder();
+
+            const salt =
+                crypto.getRandomValues(
+                    new Uint8Array(32)
+                );
+
+            const iv =
+                crypto.getRandomValues(
+                    new Uint8Array(12)
+                );
+
+            const key =
+                await deriveKey(
+                    password,
+                    salt
+                );
+
+            const encrypted =
+                await crypto.subtle.encrypt(
+                    {
+                        name:"AES-GCM",
+                        iv
+                    },
+                    key,
+                    encoder.encode(secret)
+                );
+
+            const blob = {
+
+                v:1,
+
+                alg:"AES-256-GCM",
+
+                kdf:"PBKDF2-SHA512",
+
+                iterations:1000000,
+
+                salt:toBase64Url(salt),
+
+                iv:toBase64Url(iv),
+
+                data:toBase64Url(encrypted)
+            };
+
+            output.textContent =
+                JSON.stringify(
+                    blob,
+                    null,
+                    2
+                );
+
+            secret = null;
+            password = null;
+
+        }catch(err){
+
+            output.textContent =
+                "ERRORE: " + err.message;
+        }
+    }
+);
+</script>
+
+</body>
+</html>

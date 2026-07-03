@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin Catalog Manager</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:920px;margin:40px auto;padding:0 16px;line-height:1.5}
+    h1{margin-bottom:8px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+    input,button,textarea{font:inherit;padding:10px;border:1px solid #ccc;border-radius:8px}
+    input,textarea{width:100%;box-sizing:border-box}
+    button{cursor:pointer;background:#111;color:#fff;border:none}
+    button.secondary{background:#666}
+    .card{border:1px solid #e5e5e5;border-radius:12px;padding:16px;margin-top:16px}
+    ul{padding-left:18px}
+    li{margin:8px 0}
+    .muted{color:#666}
+    .ok{color:green}
+    .err{color:#b00020}
+  </style>
+</head>
+<body>
+  <h1>Gestionale calendari</h1>
+  <p class="muted">Pagina admin per leggere e salvare il catalogo su Netlify Blobs.</p>
+
+  <div class="card">
+    <div class="row">
+      <div style="flex:1 1 280px">
+        <label for="adminKey">Admin key</label>
+        <input id="adminKey" type="password" placeholder="Inserisci la chiave admin">
+      </div>
+      <div style="align-self:end">
+        <button id="loadBtn">Carica catalogo</button>
+      </div>
+    </div>
+    <div id="status" class="muted"></div>
+  </div>
+
+  <div class="card">
+    <h2>Calendari</h2>
+    <ul id="calendarList"></ul>
+  </div>
+
+  <div class="card">
+    <h2>Modifica catalogo</h2>
+    <div class="row">
+      <div style="flex:1 1 220px">
+        <label for="calName">Nome</label>
+        <input id="calName" type="text" placeholder="Nome calendario">
+      </div>
+      <div style="flex:1 1 140px">
+        <label for="calId">ID</label>
+        <input id="calId" type="text" placeholder="id-uuid">
+      </div>
+      <div style="flex:1 1 140px">
+        <label for="calEncrypted">Encrypted</label>
+        <input id="calEncrypted" type="text" placeholder="true / false">
+      </div>
+    </div>
+    <div class="row">
+      <div style="flex:1 1 100%">
+        <button id="saveBtn">Salva catalogo</button>
+        <button id="addBtn" class="secondary">Aggiungi riga di esempio</button>
+      </div>
+    </div>
+    <p class="muted">Questo file è solo un front-end minimale: la logica vera di salvataggio passa dalla Function.</p>
+  </div>
+
+  <script>
+    const apiUrl = '/.netlify/functions/catalog-manager';
+    const statusEl = document.getElementById('status');
+    const listEl = document.getElementById('calendarList');
+    const adminKeyEl = document.getElementById('adminKey');
+    const loadBtn = document.getElementById('loadBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const addBtn = document.getElementById('addBtn');
+    const calNameEl = document.getElementById('calName');
+    const calIdEl = document.getElementById('calId');
+    const calEncryptedEl = document.getElementById('calEncrypted');
+
+    let catalog = { version: 1, updatedAt: null, calendars: [] };
+
+    function setStatus(msg, type='muted') {
+      statusEl.className = type;
+      statusEl.textContent = msg;
+    }
+
+    function render() {
+      listEl.innerHTML = '';
+      if (!catalog.calendars.length) {
+        listEl.innerHTML = '<li class="muted">Nessun calendario presente.</li>';
+        return;
+      }
+      catalog.calendars.forEach((c, i) => {
+        const li = document.createElement('li');
+        li.textContent = `${c.name || '(senza nome)'} — id: ${c.id || '-'} — encrypted: ${!!c.encrypted}`;
+        li.style.cursor = 'pointer';
+        li.title = 'Clicca per caricare nei campi';
+        li.onclick = () => {
+          calNameEl.value = c.name || '';
+          calIdEl.value = c.id || '';
+          calEncryptedEl.value = String(!!c.encrypted);
+        };
+        listEl.appendChild(li);
+      });
+    }
+
+    async function loadCatalog() {
+      try {
+        setStatus('Caricamento in corso...');
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Errore caricamento');
+        catalog = data;
+        render();
+        setStatus(`Catalogo caricato. Aggiornato: ${catalog.updatedAt || 'mai'}`, 'ok');
+      } catch (e) {
+        setStatus(e.message, 'err');
+      }
+    }
+
+    async function saveCatalog() {
+      try {
+        const name = calNameEl.value.trim();
+        const id = calIdEl.value.trim();
+        const encrypted = calEncryptedEl.value.trim().toLowerCase() === 'true';
+        if (!name || !id) throw new Error('Nome e ID sono obbligatori per l’esempio.');
+        const exists = catalog.calendars.findIndex(c => c.id === id);
+        const item = { id, name, encrypted };
+        if (exists >= 0) catalog.calendars[exists] = item;
+        else catalog.calendars.push(item);
+
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-key': adminKeyEl.value.trim()
+          },
+          body: JSON.stringify(catalog)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Errore salvataggio');
+        setStatus('Catalogo salvato correttamente.', 'ok');
+        await loadCatalog();
+      } catch (e) {
+        setStatus(e.message, 'err');
+      }
+    }
+
+    loadBtn.addEventListener('click', loadCatalog);
+    saveBtn.addEventListener('click', saveCatalog);
+    addBtn.addEventListener('click', () => {
+      calNameEl.value = 'Calendario esempio';
+      calIdEl.value = 'cal-' + Math.random().toString(36).slice(2, 10);
+      calEncryptedEl.value = 'false';
+    });
+
+    render();
+  </script>
+</body>
+</html>
