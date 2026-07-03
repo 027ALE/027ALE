@@ -42,7 +42,10 @@ async function writeCatalog(store, catalog) {
     updatedAt: new Date().toISOString(),
     calendars: catalog.calendars
   };
-  await store.setJSON(CATALOG_KEY, nextCatalog);
+  // CORREZIONE: Sostituito store.setJSON con store.set e stringificazione manuale
+  await store.set(CATALOG_KEY, JSON.stringify(nextCatalog), {
+    metadata: { contentType: "application/json" }
+  });
   return nextCatalog;
 }
 
@@ -215,6 +218,9 @@ export default async function handler(request, context) {
 
     return jsonResponse(405, { error: "Method Not Allowed" });
   } catch (error) {
-    return jsonResponse(500, { error: "Internal Server Error", detail: String(error?.message || error) });
+    return jsonResponse(500, {
+      error: "Internal Server Error",
+      detail: String(error?.message || error)
+    });
   }
 }
