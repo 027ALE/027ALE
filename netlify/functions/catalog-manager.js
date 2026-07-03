@@ -47,7 +47,10 @@ jsonFileInput.addEventListener('change', (e) => {
                             // Se pubblico, scarica l'URL .ics inserito
                             setStatus(`Scaricamento in corso: ${c.name}...`);
                             try {
-                                const res = await fetch(c.url);
+                                // alcuni cataloghi usano lo schema webcal:// — sostituiscilo con https:// per fetch
+                                let fetchUrl = c.url;
+                                if (/^webcal:/i.test(fetchUrl)) fetchUrl = fetchUrl.replace(/^webcal:/i, 'https:');
+                                const res = await fetch(fetchUrl);
                                 if (!res.ok) throw new Error('Impossibile scaricare il file URL');
                                 const icsText = await res.text();
                                 // NOTA: Qui passerai icsText alla tua funzione esistente che elabora il testo dell'ICS
