@@ -46,16 +46,10 @@ input[type=file]{padding:10px 12px;background:var(--soft);border:1px solid var(-
       </ol>
     </div>
     <div class="row no-print">
-        <input id="fileInput" type="file" accept=".ics,text/calendar,.ical,.ifb,.txt" />
-        <button id="loadLinksBtn" type="button">Seleziona da link</button>
-         <button id="refreshLinksBtn" type="button" disabled>Ricarica lista</button>
-         <button id="saveHtmlBtn" disabled>Esporta pagina finale</button>
-        <button id="pdfBtn" disabled>Genera PDF</button>
+      <input id="fileInput" type="file" accept=".ics,text/calendar,.ical,.ifb,.txt" />
+      <button id="saveHtmlBtn" disabled>Esporta pagina finale</button>
+      <button id="pdfBtn" disabled>Genera PDF</button>
     </div>
-    <div id="linkPanel" class="instructions no-print" style="display:none;">
-        <strong>Seleziona un link</strong>
-        <div id="linkList" style="display:grid;gap:8px;margin-top:8px;"></div>
-    </div>  
     <div id="status" class="status"></div>
     <div id="summary" class="grid"></div>
   </div>
@@ -65,23 +59,11 @@ input[type=file]{padding:10px 12px;background:var(--soft);border:1px solid var(-
 </div>
 <script>
 const fileInput = document.getElementById('fileInput');
-const jsonFileInput = document.createElement('input');
-jsonFileInput.type = 'file';
-jsonFileInput.accept = '.json';
-jsonFileInput.style.display = 'none';
-document.body.appendChild(jsonFileInput);
 const summaryEl = document.getElementById('summary');
 const outputEl = document.getElementById('output');
 const statusEl = document.getElementById('status');
 const saveHtmlBtn = document.getElementById('saveHtmlBtn');
 const pdfBtn = document.getElementById('pdfBtn');
-const loadLinksBtn = document.getElementById('loadLinksBtn');
-const refreshLinksBtn = document.getElementById('refreshLinksBtn');
-const linkPanel = document.getElementById('linkPanel');
-const linkList = document.getElementById('linkList');
-let localCatalog = { version: 1, updatedAt: null, calendars: [] };
-let selectedLinkItem = null;
-let catalogCache = null;
 let currentModel = null;
 const TRAVEL_KEYWORDS =
     '(?:percorrenza|tempo\\s+di\\s+percorrenza|tempo\\s+viaggio|durata\\s+trasferimento)';
@@ -554,6 +536,7 @@ function parseICS(raw){
         }
 
         /* AGGIUNGI QUI */
+
         if (
             obj.isAllDay &&
             obj.isAllDayEnd &&
@@ -564,7 +547,11 @@ function parseICS(raw){
         }
 
         obj.dayKey = obj.start
-            ? `${obj.start.getFullYear()}-${String(obj.start.getMonth() + 1).padStart(2, '0')}-${String(obj.start.getDate()).padStart(2, '0')}`
+            ? `${obj.start.getFullYear()}-${String(obj.start.getMonth()+1).padStart(2,'0')}-${String(obj.start.getDate()).padStart(2,'0')}`
+            : '';
+
+        obj.dayKey = obj.start
+            ? `${obj.start.getFullYear()}-${String(obj.start.getMonth()+1).padStart(2,'0')}-${String(obj.start.getDate()).padStart(2,'0')}`
             : '';
 
         obj.placeLabel = (obj.location || obj.summary)
@@ -609,214 +596,6 @@ function parseICS(raw){
         calName,
         events: parsed
     };
-}
-function toBase64(buffer) {
-  let binary = '';
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
-function fromBase64(b64) {
-  const binary = atob(b64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return bytes;
-}
-
-async function deriveKeyFromPassword(password, saltBytes) {
-  const enc = new TextEncoder();
-  const keyMaterial = await crypto.subtle.importKey(
-    'raw',
-    enc.encode(password),
-    'PBKDF2',
-    false,
-    ['deriveKey']
-  );
-
-  return crypto.subtle.deriveKey(
-    {
-      name: 'PBKDF2',
-      salt: saltBytes,
-      iterations: 100000,
-      hash: 'SHA-256'
-    },
-    keyMaterial,
-    { name: 'AES-GCM', length: 256 },
-    false,
-    ['decrypt']
-  );
-}
-
-async function decryptBlobPayload(payload, password) {
-  const obj = typeof payload === 'string' ? JSON.parse(payload) : payload;
-  if (!obj || !obj.salt || !obj.iv || !obj.data) {
-    throw new Error('Blob cifrato non valido');
-  }
-
-  const salt = fromBase64(obj.salt);
-  const iv = fromBase64(obj.iv);
-  const encrypted = fromBase64(obj.data);
-
-  const key = await deriveKeyFromPassword(password, salt);
-  const plain = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    encrypted
-  );
-
-  return new TextDecoder().decode(plain);
-}
-
-function showLinkPanel(show = true) {
-  linkPanel.style.display = show ? 'grid' : 'none';
-}
-async function fetchCatalog() {
-  const res = await fetch(CATALOG_API);
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Errore caricamento catalogo');
-  catalogCache = data;
-  return data;
-}
-
-function renderLinkList(catalog) {
-  linkList.innerHTML = '';
-
-  if (!catalog.calendars || !catalog.calendars.length) {
-    linkList.innerHTML = '<div class="muted">Nessun link disponibile.</div>';
-    return;
-  }
-
-  catalog.calendars.forEach(item => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.style.textAlign = 'left';
-    btn.style.width = '100%';
-    btn.style.display = 'flex';
-    btn.style.justifyContent = 'space-between';
-    btn.style.gap = '10px';
-
-    btn.innerHTML = `
-      <span>${esc(item.name)}</span>
-      <span class="muted">${item.encrypted ? 'criptato' : 'chiaro'}</span>
-    `;
-
-    btn.addEventListener('click', () => selectCatalogItem(item));
-    linkList.appendChild(btn);
-  });
-}
-
-// 1. Quando clicchi "Seleziona da link", apri il selettore file per il catalog.json
-loadLinksBtn.addEventListener('click', () => {
-    jsonFileInput.click();
-});
-
-// 2. Gestisci la lettura del file catalog.json caricato dal tuo Mac
-jsonFileInput.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    setStatus('Lettura catalogo in corso...');
-    const reader = new FileReader();
-    reader.onload = (event) => {
-        try {
-            const data = JSON.parse(event.target.result);
-            if (data && Array.isArray(data.calendars)) {
-                localCatalog = data;
-                catalogCache = data; // mantiene compatibilità con il tuo codice esistente
-                
-                // Popola il pannello dei link con i dati del file JSON
-                linkList.innerHTML = '';
-                localCatalog.calendars.forEach(c => {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'link-btn';
-                    btn.style.textAlign = 'left';
-                    btn.style.background = 'none';
-                    btn.style.color = '#0a84ff';
-                    btn.style.padding = '4px 0';
-                    
-                    const tipo = c.type === 'private' ? '🔒 Criptato' : '🌐 Pubblico';
-                    btn.textContent = `${c.name} (${tipo})`;
-                    
-                    // Al clic sul calendario, scarica o legge il file .ics corrispondente
-                    btn.onclick = async () => {
-                        clearStatus();
-                        if (c.type === 'private') {
-                            // Se privato, decodifica il testo/blob salvato nel JSON
-                            if (!c.blobKey) {
-                                setStatus('Errore: Contenuto del calendario privato vuoto.', true);
-                                return;
-                            }
-                            // Esegue il parsing del testo dell'iCal direttamente dal blob locale
-                            setStatus(`Caricato calendario privato: ${c.name}`);
-                            // NOTA: Qui dovrai passare c.blobKey alla tua funzione esistente che elabora il testo dell'ICS
-                        } else if (c.url) {
-                            // Se pubblico, scarica l'URL .ics inserito
-                            setStatus(`Scaricamento in corso: ${c.name}...`);
-                            try {
-                                const res = await fetch(c.url);
-                                if (!res.ok) throw new Error('Impossibile scaricare il file URL');
-                                const icsText = await res.text();
-                                // NOTA: Qui passerai icsText alla tua funzione esistente che elabora il testo dell'ICS
-                                setStatus(`Calendario pubblico caricato!`, false);
-                            } catch (err) {
-                                setStatus(`Errore di rete scaricando l'URL: ${err.message}`, true);
-                            }
-                        }
-                    };
-                    linkList.appendChild(btn);
-                });
-
-                linkPanel.style.display = 'block';
-                setStatus(`Catalogo locale caricato! ${localCatalog.calendars.length} calendari trovati.`, false);
-            } else {
-                throw new Error('Struttura catalog.json non valida.');
-            }
-        } catch (err) {
-            setStatus('Errore file JSON: ' + err.message, true);
-        }
-    };
-    reader.readAsText(file);
-});
-
-async function selectCatalogItem(item) {
-  try {
-    selectedLinkItem = item;
-    setStatus(`Selezionato: ${item.name}. Recupero contenuto...`);
-
-    const res = await fetch(`${CATALOG_API}?id=${encodeURIComponent(item.id)}`);
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Errore lettura link');
-
-    let icsText = '';
-
-    if (data.type === 'public') {
-      const fileRes = await fetch(data.url);
-      if (!fileRes.ok) throw new Error('Impossibile scaricare il file pubblico');
-      icsText = await fileRes.text();
-    } else if (data.encrypted) {
-      const password = prompt(`Password per "${data.name}"`);
-      if (!password) {
-        setStatus('Operazione annullata.');
-        return;
-      }
-      icsText = await decryptBlobPayload(data.blob, password);
-    } else {
-      icsText = data.blob;
-    }
-
-    const model = parseICS(icsText);
-    renderModel(model);
-    setStatus(`File caricato da: ${item.name}`);
-    showLinkPanel(false);
-  } catch (err) {
-    console.error(err);
-    setStatus(err.message || 'Errore nel caricamento del link', true);
-  }
 }
 function groupByDay(events){const map=new Map(); for(const ev of events){ if(!map.has(ev.dayKey)) map.set(ev.dayKey,[]); map.get(ev.dayKey).push(ev);} return [...map.entries()].map(([key,items])=>({key,items}));}
 function buildSummary(model){const {calName,events}=model; summaryEl.innerHTML=''; if(!events.length) return; const first=events[0].start; const lastEnd=events.reduce((m,e)=>e.end&&e.end>m?e.end:m,events[0].end||events[0].start); const days=new Set(events.map(e=>e.dayKey)).size; const stops=new Set(events.map(e=>e.placeLabel).filter(Boolean)).size; const travelTimes=events.filter(e=>e.travelTime).length; const cards=[['Titolo',calName],['Periodo',`${fmtShortDate(first)} - ${fmtShortDate(lastEnd)}`],['Giorni',String(days)],['Eventi',String(events.length)],['Tappe',String(stops)],['Percorrenze',String(travelTimes)]]; summaryEl.innerHTML=cards.map(([k,v])=>`<div class="stat"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('');}
@@ -1002,8 +781,6 @@ function generatePdf(){ if(!currentModel) return; const w=window.open('','_blank
 fileInput.addEventListener('change', async e=>{const f=e.target.files && e.target.files[0]; if(!f) return; clearStatus(); try{ const txt=await f.text(); const model=parseICS(txt); renderModel(model); setStatus(`Importazione completata: ${model.events.length} eventi letti da ${f.name}.`); } catch(err){ console.error(err); setStatus('Errore durante la lettura del file iCal.', true); }});
 saveHtmlBtn.addEventListener('click', saveStaticHTML);
 pdfBtn.addEventListener('click', generatePdf);
-loadLinksBtn.addEventListener('click', loadLinkCatalog);
-refreshLinksBtn.addEventListener('click', loadLinkCatalog);
 </script>
 </body>
 </html>
