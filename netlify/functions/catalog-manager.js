@@ -60,7 +60,7 @@ jsonFileInput.addEventListener('change', (e) => {
                                 }
                                 
                                 // AGGIORNAMENTO CRITICO: Usa un proxy CORS pubblico per aggirare il blocco di Apple iCloud
-                                const proxyUrl = 'https://corsproxy.io?' + encodeURIComponent(fetchUrl);
+                                const proxyUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent(fetchUrl);
                                 
                                 const res = await fetch(proxyUrl);
                                 if (!res.ok) throw new Error('Impossibile scaricare il file dal server di origine');
