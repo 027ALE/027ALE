@@ -1,7 +1,9 @@
-import { getStore } from "@netlify/blobs";
+import fs from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const STORE_NAME = "calendar-catalog";
-const CATALOG_KEY = "catalog";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CATALOG_PATH = path.join(__dirname, "catalog.json");
 
 const DEFAULT_CATALOG = {
   version: 1,
@@ -30,22 +32,26 @@ function isAuthorized(request) {
   return getAdminKey(request) === (process.env.ADMIN_KEY || "");
 }
 
-async function readCatalog(store) {
-  const catalog = await store.get(CATALOG_KEY, { type: "json" });
-  if (catalog && Array.isArray(catalog.calendars)) return catalog;
-  return structuredClone(DEFAULT_CATALOG);
+// LEGGE DAL FILE JSON LOCALE
+async function readCatalog() {
+  try {
+    const data = await fs.readFile(CATALOG_PATH, "utf8");
+    const catalog = JSON.parse(data);
+    if (catalog && Array.isArray(catalog.calendars)) return catalog;
+    return structuredClone(DEFAULT_CATALOG);
+  } catch {
+    return structuredClone(DEFAULT_CATALOG);
+  }
 }
 
-async function writeCatalog(store, catalog) {
+// SCRIVE NEL FILE JSON LOCALE
+async function writeCatalog(catalog) {
   const nextCatalog = {
     version: Number.isFinite(catalog.version) ? catalog.version : 1,
     updatedAt: new Date().toISOString(),
     calendars: catalog.calendars
   };
-  // CORREZIONE: Sostituito store.setJSON con store.set e stringificazione manuale
-  await store.set(CATALOG_KEY, JSON.stringify(nextCatalog), {
-    metadata: { contentType: "application/json" }
-  });
+  await fs.writeFile(CATALOG_PATH, JSON.stringify(nextCatalog, null, 2), "utf8");
   return nextCatalog;
 }
 
@@ -90,9 +96,9 @@ function findCalendar(calendars, id) {
   return calendars.find(c => c.id === id) || null;
 }
 
-async function handleGet(store, url) {
+async function handleGet(url) {
   const q = Object.fromEntries(url.searchParams.entries());
-  const catalog = await readCatalog(store);
+  const catalog = await readCatalog();
 
   if (!q.id) return jsonResponse(200, publicCatalog(catalog));
 
@@ -109,20 +115,14 @@ async function handleGet(store, url) {
     });
   }
 
-  const blobKey = item.blobKey || `calendar:${item.id}:blob`;
-  const blob = await store.get(blobKey, { type: "text" });
-  if (!blob) return jsonResponse(404, { error: "Blob not found" });
-
-  return jsonResponse(200, {
-    id: item.id,
-    name: item.name,
-    encrypted: !!item.encrypted,
-    type: "private",
-    blob
+  // NOTA: I Calendari privati cercavano un blob esterno. 
+  // Ora che usiamo il JSON locale, restituiamo un errore controllato.
+  return jsonResponse(400, { 
+    error: "Private blobs are disabled. This calendar must be switched to public." 
   });
 }
 
-async function handlePost(store, request) {
+async function handlePost(request) {
   if (!isAuthorized(request)) return jsonResponse(403, { error: "Forbidden" });
 
   let payload;
@@ -156,8 +156,8 @@ async function handlePost(store, request) {
       names.add(key);
     }
 
-    const current = await readCatalog(store);
-    const nextCatalog = await writeCatalog(store, {
+    const current = await readCatalog();
+    const nextCatalog = await writeCatalog({
       version: Number.isFinite(payload.version) ? payload.version : current.version,
       calendars
     });
@@ -170,7 +170,7 @@ async function handlePost(store, request) {
     const error = validateCalendar(item);
     if (error) return jsonResponse(400, { error });
 
-    const catalog = await readCatalog(store);
+    const catalog = await readCatalog();
     if (duplicateNameExists(catalog.calendars, item.name, item.id)) {
       return jsonResponse(409, { error: "Duplicate calendar name" });
     }
@@ -179,7 +179,7 @@ async function handlePost(store, request) {
     if (index >= 0) catalog.calendars[index] = item;
     else catalog.calendars.push(item);
 
-    const nextCatalog = await writeCatalog(store, catalog);
+    const nextCatalog = await writeCatalog(catalog);
     return jsonResponse(200, { success: true, catalog: publicCatalog(nextCatalog) });
   }
 
@@ -187,17 +187,13 @@ async function handlePost(store, request) {
     const id = String(payload.id || "").trim();
     if (!id) return jsonResponse(400, { error: "Invalid calendar id" });
 
-    const catalog = await readCatalog(store);
+    const catalog = await readCatalog();
     const removed = findCalendar(catalog.calendars, id);
     if (!removed) return jsonResponse(404, { error: "Not found" });
 
     const nextCalendars = catalog.calendars.filter(c => c.id !== id);
-    if (removed.blobKey || removed.id) {
-      const blobKey = removed.blobKey || `calendar:${removed.id}:blob`;
-      try { await store.delete(blobKey); } catch {}
-    }
 
-    const nextCatalog = await writeCatalog(store, {
+    const nextCatalog = await writeCatalog({
       version: catalog.version,
       calendars: nextCalendars
     });
@@ -210,11 +206,10 @@ async function handlePost(store, request) {
 
 export default async function handler(request, context) {
   try {
-    const store = getStore(STORE_NAME);
     const url = new URL(request.url);
 
-    if (request.method === "GET") return await handleGet(store, url);
-    if (request.method === "POST") return await handlePost(store, request);
+    if (request.method === "GET") return await handleGet(url);
+    if (request.method === "POST") return await handlePost(request);
 
     return jsonResponse(405, { error: "Method Not Allowed" });
   } catch (error) {

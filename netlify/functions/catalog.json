@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-03T12:00:00.000Z",
+  "calendars": [
+    {
+      "id": "demo-1",
+      "name": "Calendario Esempio",
+      "encrypted": false,
+      "type": "public",
+      "url": "https://example.com"
+    }
+  ]
+}
