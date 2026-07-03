@@ -131,11 +131,17 @@
         if (exists >= 0) catalog.calendars[exists] = item;
         else catalog.calendars.push(item);
 
+        const passwordInChiaro = "TEST1234";
+
+        if (adminKeyEl.value.trim() !== passwordInChiaro) {
+          throw new Error("Password errata");
+        }
+
         const res = await fetch(apiUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-admin-key': adminKeyEl.value.trim()
+            'x-admin-key': passwordInChiaro
           },
           body: JSON.stringify(catalog)
         });
