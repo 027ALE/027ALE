@@ -1,0 +1,8 @@
+{
+  "name": "027ale-catalog",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "^0.5.5"
+  }
+}

@@ -1,4 +1,7 @@
+[build]
+  command = "echo 'Nessun comando di build richiesto, installazione dipendenze in corso...'"
+
 [functions]
   directory = "netlify/functions"
-  external_node_modules = ["@netlify/blobs"]
   node_bundle = true
+  external_node_modules = []
