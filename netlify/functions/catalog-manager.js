@@ -42,21 +42,40 @@ jsonFileInput.addEventListener('change', (e) => {
                             }
                             // Esegue il parsing del testo dell'iCal direttamente dal blob locale
                             setStatus(`Caricato calendario privato: ${c.name}`);
-                            // NOTA: Qui dovrai passare c.blobKey alla tua funzione esistente che elabora il testo dell'ICS
+                            
+                            // INTEGRAZIONE: Passa il blob privato alla tua funzione esistente di parsing
+                            if (typeof parseAndRenderICS === 'function') {
+                                parseAndRenderICS(c.blobKey);
+                            } else if (typeof handleICSText === 'function') {
+                                handleICSText(c.blobKey);
+                            }
                         } else if (c.url) {
                             // Se pubblico, scarica l'URL .ics inserito
                             setStatus(`Scaricamento in corso: ${c.name}...`);
                             try {
-                                // alcuni cataloghi usano lo schema webcal:// — sostituiscilo con https:// per fetch
                                 let fetchUrl = c.url;
-                                if (/^webcal:/i.test(fetchUrl)) fetchUrl = fetchUrl.replace(/^webcal:/i, 'https:');
-                                const res = await fetch(fetchUrl);
-                                if (!res.ok) throw new Error('Impossibile scaricare il file URL');
+                                // Converte lo schema webcal:// in https:// per supportare fetch()
+                                if (/^webcal:/i.test(fetchUrl)) {
+                                    fetchUrl = fetchUrl.replace(/^webcal:/i, 'https:');
+                                }
+                                
+                                // AGGIORNAMENTO CRITICO: Usa un proxy CORS pubblico per aggirare il blocco di Apple iCloud
+                                const proxyUrl = 'https://corsproxy.io?' + encodeURIComponent(fetchUrl);
+                                
+                                const res = await fetch(proxyUrl);
+                                if (!res.ok) throw new Error('Impossibile scaricare il file dal server di origine');
                                 const icsText = await res.text();
-                                // NOTA: Qui passerai icsText alla tua funzione esistente che elabora il testo dell'ICS
-                                setStatus(`Calendario pubblico caricato!`, false);
+                                
+                                // INTEGRAZIONE: Passa il testo ICS scaricato alla tua funzione esistente di parsing
+                                if (typeof parseAndRenderICS === 'function') {
+                                    parseAndRenderICS(icsText);
+                                } else if (typeof handleICSText === 'function') {
+                                    handleICSText(icsText);
+                                }
+                                
+                                setStatus(`Calendario pubblico "${c.name}" caricato con successo!`, false);
                             } catch (err) {
-                                setStatus(`Errore di rete scaricando l'URL: ${err.message}`, true);
+                                setStatus(`Errore CORS/Rete scaricando l'URL: ${err.message}`, true);
                             }
                         }
                     };
